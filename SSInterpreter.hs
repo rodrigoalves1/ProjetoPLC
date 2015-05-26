@@ -56,8 +56,16 @@ eval env (List (Atom "comment":[v])) = eval env Comment
 eval env (List (Atom "comment": l: ls)) = (eval env l) >>= (\v -> case v of { (error@(Error _)) -> return error; otherwise -> eval env (List (Atom "comment": ls))})
 eval env (List (Atom "comment":[])) = return (Comment)
 
-eval env (List (Atom "set!" : var@(Atom variavel) : args )) = stateLookup env variavel >>= set env var args
+eval env (List (Atom "set!" : var@(Atom variavel) : expression )) = stateLookup env variavel >>= set env var expression
 --(begin (define a (+ 5 2)) (set! a 5))
+
+--eval env (List (Atom "let" : List bindings : body : [] )) = lett env bindings body  
+-- bindings =((variablei initi) . . . ) init sao expressoes
+-- exemplo (let ((x 2) (y 3)) (* x y))
+
+eval env (List (Atom "if" : test : consequent : alternate : [] )) = eval env test >>= iff env [consequent] [alternate]
+--runhaskell SSInterpreter.hs "(iff (lt? 2 5) (define a 5) (define a 2))"
+
 eval env lam@(List (Atom "lambda":(List formals):body:[])) = return lam
 -- The following line is slightly more complex because we are addressing the
 -- case where define is redefined by the user (whatever is the user's reason
@@ -167,9 +175,13 @@ instance Monad StateTransformer where
 -- Includes some auxiliary functions. Does not include functions that modify
 -- state. These functions, such as define and set!, must run within the
 -- StateTransformer monad. 
-
+--set :: StateT -> LispVal -> [LispVal] -> StateTransformer LispVal
 set env var args (Error t) = return (Error t)
 set env var args _ = define env (var:args)
+
+iff env [consequent] [alternate] (Bool True) = eval env consequent
+iff env [consequent] [] (Bool False) = return (Atom "")
+iff env [consequent] [alternate] (Bool False) = eval env alternate 
 
 car :: [LispVal] -> LispVal
 car [List (a:as)] = a
